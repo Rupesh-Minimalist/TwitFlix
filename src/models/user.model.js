@@ -55,11 +55,11 @@ userSchema.pre("save",async function(next){  // Normal function because of this
     next();
 })
 
-userSchema.methods.isPasswordCorrect(async function(pass){
+userSchema.methods.isPasswordCorrect=async function(pass){
     return await bcrypt.compare(pass,this.password)
-})
+}
 
-userSchema.methods.generateAccessToken(async function(){
+userSchema.methods.generateAccessToken=async function(){
 
     return jwt.sign(
         {
@@ -73,9 +73,9 @@ userSchema.methods.generateAccessToken(async function(){
             expiresIn:process.env.ACCESS_TOKEN_EXPIRY
         }
     )
-} )
+} 
 
-userSchema.methods.generateRefreshToken(async function(){
+userSchema.methods.generateRefreshToken=async function(){
 
     return jwt.sign(
         {
@@ -86,6 +86,6 @@ userSchema.methods.generateRefreshToken(async function(){
             expiresIn:process.env.REFRESH_TOKEN_EXPIRY
         }
     )
-} )
+} 
 
 export const User=mongoose.model("User",userSchema) // named export

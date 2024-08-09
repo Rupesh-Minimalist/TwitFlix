@@ -1,13 +1,13 @@
-import {User} from "../models/user.model.js"
+import { User } from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 
 const registerUser=async(req,res)=>{
 
-    const {username,email,fullName, passsword}=req.body
+    const {username,email,fullName, password}=req.body
 
     // Validations:
 
-    const fields=[username,email,fullName,passsword]
+    const fields=[username,email,fullName,password]
     const ValidFields=fields.every(field=>field.trim()!=="")
 
     if(!ValidFields){
@@ -18,29 +18,32 @@ const registerUser=async(req,res)=>{
 
     // If user Already exist:
 
-    const existedUser=User.findOne({
+    const existedUser=await User.findOne({
         $or: [{username},{email}]
     })
 
     if(existedUser){
         return res.status(409).json({
-            error:"Username or Email Already Exist"
+            error:"Username or Email Already Exist !!"
         })
     }
 
     //Check for Images and Check for Avatar:
 
     const avatarLocalPath=req.files?.avatar[0]?.path
-    const coverImageLocalPath=req.files?.coverImage[0]?.path
-
+    let coverImageLocalPath
+    if(req.files && Array.isArray(req.files.coverImage) && req.files?.coverImage.length>0){
+         coverImageLocalPath=req.files?.coverImage[0]?.path
+    } // Special check if coverimage is not sent
+    
     if(!avatarLocalPath){
         return res.status(400).json({
             error:"Avatar is Required"
         })
     }
 
-    const avatar=uploadOnCloudinary(avatarLocalPath)
-    const coverImage=uploadOnCloudinary(coverImageLocalPath)
+    const avatar=await uploadOnCloudinary(avatarLocalPath)
+    const coverImage=await uploadOnCloudinary(coverImageLocalPath)
 
     if(!avatar){
         return res.status(400).json({
@@ -54,9 +57,9 @@ const registerUser=async(req,res)=>{
         fullName,
         username:username.toLowerCase(),
         email,
-        passsword,
-        avatar:avatar.url, // .url is returned by cloudinary
-        coverImage:coverImage.url || ""
+        password,
+        avatar:avatar?.url , // .url is returned by cloudinary
+        coverImage:coverImage?.url || ""
     })
 
     const createdUser=await User.findOne({_id:newUser._id}).select("-password -refreshToken")
