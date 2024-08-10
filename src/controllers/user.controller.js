@@ -75,4 +75,92 @@ const registerUser=async(req,res)=>{
     })
 }
 
-export default registerUser
+const loginUser=async(req,res)=>{
+    
+    const {email,username,password}=req.body
+
+    // Validations:
+
+    if(!email || !username ){
+
+        return res.status(400).json({
+            error:"Email or username is Required !"
+        })
+    }
+
+    // Find user
+
+    let existedUser=await User.findOne({
+        $or:[{email},{username}]
+    })
+
+    if(!existedUser){
+        return res.status(404).json({
+            error:"Account Doesn't Exist, Register First ! "
+        })
+    }
+
+    //Password check
+
+    const isPasswordValid=await existedUser.isPasswordCorrect(password)
+
+    if(!isPasswordValid){
+        return res.status(401).json({
+            error:"Invalid Username or Password"
+        })
+    }
+
+    // Generate AccessToken and RefreshToken
+
+    const accessToken=await existedUser.generateAccessToken()
+    const refreshToken=await existedUser.generateAccessToken()
+
+    existedUser.refreshToken=refreshToken
+    await existedUser.save({validateBeforeSave:false})
+
+    //Saving cookie
+
+    const options={    // so that cookie cant be edited
+        httpOnly:true,
+        secure:true
+    }
+
+    return res
+    .status(200)
+    .cookie("accessToken",accessToken,options)
+    .cookie("refreshToken",refreshToken,options)
+    .json({
+        message:"Logged in Succesfully !"
+    })
+
+}
+
+const logoutUser=async(req,res)=>{
+
+    await User.findByIdAndUpdate(
+        req.user._id,           // isloggedin
+        {
+            $set:{
+                refreshToken:undefined
+            }
+        },
+        {new:true}
+    ) 
+
+    const options={    // so that cookie cant be edited
+        httpOnly:true,
+        secure:true
+    }
+
+    return res
+    .status(200)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
+    .json({
+        message:"Logged out Successfully"
+    })
+
+}
+
+
+export {registerUser, loginUser, logoutUser}
