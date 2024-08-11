@@ -1,5 +1,6 @@
 import { User } from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import jwt from "jsonwebtoken"
 
 const registerUser=async(req,res)=>{
 
@@ -81,7 +82,7 @@ const loginUser=async(req,res)=>{
 
     // Validations:
 
-    if(!email || !username ){
+    if(!email && !username ){
 
         return res.status(400).json({
             error:"Email or username is Required !"
@@ -113,7 +114,7 @@ const loginUser=async(req,res)=>{
     // Generate AccessToken and RefreshToken
 
     const accessToken=await existedUser.generateAccessToken()
-    const refreshToken=await existedUser.generateAccessToken()
+    const refreshToken=await existedUser.generateRefreshToken()
 
     existedUser.refreshToken=refreshToken
     await existedUser.save({validateBeforeSave:false})
@@ -162,5 +163,58 @@ const logoutUser=async(req,res)=>{
 
 }
 
+const refreshAccessToken=async(req,res)=>{
 
-export {registerUser, loginUser, logoutUser}
+    const incomingRefreshToken=req.cookies.refreshToken || req.body.refreshToken // for different 
+
+    if(!incomingRefreshToken){
+        res.status(401).json({
+            error:"Unathorised Request"
+        })
+    }
+
+    try {
+        let decoded_Token=jwt.verify(incomingRefreshToken,process.env.REFRESH_TOKEN_SECRET)
+    
+        let existedUser=await User.findById(decoded_Token._id)
+        
+        if(!existedUser){
+            res.status(401).json({
+                error:"Invalid Token"
+            })
+        }
+    
+        if(existedUser.refreshToken!==incomingRefreshToken){  
+            res.status(401).json({
+                error:"Refresh Token is expired or Used"
+            })
+        }
+    
+        const newAccessToken=await existedUser.generateAccessToken();
+        const newRefreshToken=await existedUser.generateRefreshToken()
+    
+        existedUser.refreshToken=newRefreshToken
+        await existedUser.save({validateBeforeSave:false})
+    
+        const options={
+            httpOnly:true,
+            secure:true
+        }
+    
+        return res
+        .status(200)
+        .cookie("accessToken",newAccessToken,options)
+        .cookie("refreshToken",newRefreshToken,options)
+        .json({
+            message:"Both Tokens Refreshed"
+        })
+    } catch (error) {
+        return res
+        .status(400)
+        .json({
+            error:"Something Went wronggg !"
+        })
+    }
+}
+
+export {registerUser, loginUser, logoutUser, refreshAccessToken}
