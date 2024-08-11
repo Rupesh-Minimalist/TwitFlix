@@ -217,4 +217,143 @@ const refreshAccessToken=async(req,res)=>{
     }
 }
 
-export {registerUser, loginUser, logoutUser, refreshAccessToken}
+const changeCurrentPassword=async(req,res)=>{   // user is loggedin
+
+    const {oldPassword,newPassword}=req.body
+
+    const existedUser=await User.findById(req.user._id)
+    const iscorrect=existedUser.isPasswordCorrect(oldPassword)
+
+    if(!iscorrect){
+        return res.status(401).json({
+            error:"Invalid Old Password"
+        })
+    }
+
+    existedUser.password=newPassword            //used save not findOneAndUpdate b/c we have to run pre hook
+    await existedUser.save({validateBeforeSave:false})
+
+    return res
+    .status(200)
+    .json({
+        message:"Password Changed !"
+    })
+
+}
+
+const getCurrentUser=(req,res)=>{
+
+    return res
+    .status(200)
+    .json(200,req.user,"User Fetched Succesfully")
+}
+
+const updateAccountDetails=async(req,res)=>{
+    const {email,fullName}=req.body
+
+    if(!email || !fullName){
+        return res
+        .status(401)
+        .json({
+            error:"All Fields are required"
+        })
+    }
+
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{
+                email:email,
+                fullName:fullName
+            }
+        },
+        {new:true}
+    ).select("-password")
+
+    return res 
+    .status(200)
+    .json({
+        message:"Details Updated !"
+    })
+}
+
+const updateUserAvatar=async(req,res)=>{
+
+    const newAvatarLocalPath=req.file.path //Beacuse upload.single
+
+    if(!newAvatarLocalPath){
+        return res
+        .status(401)
+        .json({
+            error:"Avatar is required"
+        })
+    }
+
+    const avatar=await uploadOnCloudinary(newAvatarLocalPath)
+    
+    if(!avatar.url){
+        return res
+        .status(401)
+        .json({
+            error:"Error while uploading to Cloudinary"
+        })
+    }
+
+   await findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{
+                avatar:avatar.url
+            }
+        },
+        {new:true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json({
+        message:"Avatar updated Succesfully"
+    })
+}
+
+const updateUserCoverImage=async(req,res)=>{
+
+    const newCoverImageLocalPath=req.file.path //Beacuse upload.single
+
+    if(!newCoverImageLocalPath){
+        return res
+        .status(401)
+        .json({
+            error:"Cover Image is required"
+        })
+    }
+
+    const coverImage=await uploadOnCloudinary(newCoverImageLocalPath)
+    
+    if(!avatar.url){
+        return res
+        .status(401)
+        .json({
+            error:"Error while uploading to Cloudinary"
+        })
+    }
+
+   await findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{
+                coverImage:coverImage.url
+            }
+        },
+        {new:true}
+    ).select("-password")
+
+
+    return res
+    .status(200)
+    .json({
+        message:"Cover Image updated Succesfully"
+    })
+}
+
+export {registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateAccountDetails, updateUserAvatar, updateUserCoverImage}
