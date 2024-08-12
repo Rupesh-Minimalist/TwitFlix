@@ -245,7 +245,9 @@ const getCurrentUser=(req,res)=>{
 
     return res
     .status(200)
-    .json(200,req.user,"User Fetched Succesfully")
+    .json({
+        message:"User Fetched Succesfully"
+    })
 }
 
 const updateAccountDetails=async(req,res)=>{
@@ -356,4 +358,84 @@ const updateUserCoverImage=async(req,res)=>{
     })
 }
 
-export {registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateAccountDetails, updateUserAvatar, updateUserCoverImage}
+const getUserChannelProfile=async(req,res)=>{
+
+    const {username}=req.params
+
+    if(!username?.trim()){
+        return res.status(401).json({
+            error:"Username is missing"
+        })
+    }
+
+    // aggreation Pipeline:
+    // TO FIND:
+    // Sunscibers, Subscribed to, isSubscribed
+
+    const channel= await User.aggregate([
+        {
+            $match:{      // just like find({})
+                username:username
+            }
+        },
+        {   
+            $lookup:{                        // subcribers
+                from:"subscriptions",         // Subscription==> subsciptions
+                localField:"_id",
+                foreignField:"channel",
+                as:"subscribers"
+            }
+        },
+        {
+            $lookup:{                       //subscribedTo
+                from:"subscriptions",
+                localField:"_id",
+                foreignField:"subscriber",
+                as:"subscribedTo"
+            }
+        },
+        {                                   // adding this field to each userModel
+            $addFields:{
+                subscriberCount:{
+                    $size:"$subscribers"   // counts
+                },
+                subscribedtoCount:{
+                    $size:"$subscribedTo"
+                },
+                isSubscribed:{
+                    $cond:{                 // Condition
+                        if:{ $in:[req.user._id,"$subscribers.subscriber"]},
+                        then:true,
+                        else:false 
+                    }
+                }
+            }
+        },
+        {
+            $project:{
+                fullName:1,
+                username:1,
+                subscriberCount:1,
+                subscribedtoCount:1,
+                isSubscribed:1,
+                avatar:1,
+                coverImage:1
+            }
+        }
+    ])
+
+    if(!channel.length){                // channel is array of results
+        return res.status(200).json({
+            error:"Channel Unavailable"
+        })
+    }
+
+    return res
+    .status(200)
+    .json({
+        message:"User Fetched Succesfully"
+    })
+
+}
+
+export {registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateAccountDetails, updateUserAvatar, updateUserCoverImage, getUserChannelProfile}
